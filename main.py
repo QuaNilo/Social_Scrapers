@@ -9,6 +9,9 @@ try:
     import selenium
     import subprocess
     import praw
+    import os
+    import googleapiclient.discovery
+    import googleapiclient.errors
 
 except ModuleNotFoundError:
     print("Please download dependencies from requirements.txt")
@@ -40,11 +43,6 @@ def check_if_reddit_user_exists(handle):
 
         else:
             raise Exception(f"I fucked up : {handle}")
-"""            user_data = {
-                "available": "true",
-                "success": "true",
-            }
-            return user_data"""
 
 def check_instagram_profile_exists(handle):
     guest = Guest()
@@ -83,6 +81,25 @@ def check_handle():
     if social_network == "reddit":
         response = check_if_reddit_user_exists(handle)
         return response, 200
+
+    if social_network == "youtube":
+        try:
+            youtube = googleapiclient.discovery.build("youtube", "v3", developerKey=os.environ.get('API_KEY'))
+            response = youtube.channels().list(
+                forUsername=handle,
+                part="id,snippet"
+            ).execute()
+            youtube.close()
+            response['is_available'] = False
+            # Check if any channels with the given name were found
+            if response.get("items"):
+                return jsonify(response)
+            else:
+                return jsonify({"available": "true", "success": "true"})
+
+        except googleapiclient.errors.HttpError as e:
+            print(f"An error occurred: {e}")
+            return None  # Error occurred
 
     if social_network == "instagram":
         in_use = check_instagram_profile_exists(handle)
