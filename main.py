@@ -2,8 +2,6 @@ try:
     from dotenv import load_dotenv
     from ensta import Guest
     from flask import Flask, request, jsonify
-    import snscrape.modules.twitter as twitter
-    import pandas as pd
     import argparse
     import json
     import selenium
@@ -14,7 +12,6 @@ try:
     import googleapiclient.errors
     import prawcore
     import requests
-    from bs4 import BeautifulSoup
 
 except ModuleNotFoundError:
     print("Please download dependencies from requirements.txt")
@@ -91,6 +88,7 @@ class SocialMediaChecker:
             print(f"An error occurred: {e}")
             return None
 
+    ##TODO IMPLEMENT TIKTOK
     def tiktok_checker(self, handle):
         pass
         """session = requests.Session()
