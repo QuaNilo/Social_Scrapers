@@ -4,14 +4,18 @@ try:
     from flask import Flask, request, jsonify
     import argparse
     import json
-    import selenium
+    from selenium import webdriver
     import subprocess
     import praw
     import os
     import googleapiclient.discovery
     import googleapiclient.errors
     import prawcore
+    from multiprocessing import Pool
     import requests
+    import dotenv
+    import requests
+    from bs4 import BeautifulSoup
 
 except ModuleNotFoundError:
     print("Please download dependencies from requirements.txt")
@@ -22,112 +26,157 @@ app = Flask(__name__)
 
 class SocialMediaChecker:
     def __init__(self):
-        self.reddit = praw.Reddit(
-            client_id='jscVQaT6to5MYlYkUQKMrw',
-            client_secret='8gWhLHjPZrkPjhkMyc56ai_INra7MQ',
-            user_agent='MyApp/1.0 by QuaNilo (geral@noop.pt)'
-        )
         load_dotenv("variables.env")
-        self.guest = Guest()
 
     def reddit_checker(self, handle):
         try:
+            self.reddit = praw.Reddit(
+                client_id=os.environ.get('reddit_client_id'),
+                client_secret=os.environ.get('reddit_client_secret'),
+                user_agent=os.environ.get('reddit_user_agent')
+            )
+
             redditor = self.reddit.redditor(handle)
             if redditor:
-                user_data = {
-                    "is_available": False,
-                    "success": True,
-                    "data": {
-                        "response": str(redditor._fetch_data())
-                    }
-                }
-                return jsonify(user_data)
+                user_data = redditor._fetch_data()
+                return user_data
+
         except prawcore.exceptions.NotFound:
-            return False
-
-    def instagram_checker(self, handle):
-        profile = self.guest.profile(handle)
-        if profile is not None:
-            json_data = {
-                "is_available": False,
-                "success": True,
-                "response": {
-                    "handle": handle,
-                    "full_name": profile.full_name,
-                    "biography": profile.biography,
-                    "followers": profile.follower_count,
-                    "following": profile.following_count
-                }
-            }
-            return json_data
-        else:
-            return False
-
-    def youtube_checker(self, handle):
-        try:
-            youtube = googleapiclient.discovery.build("youtube", "v3", developerKey=os.environ.get('yt_API_KEY'))
-            response = youtube.channels().list(
-                forUsername=handle,
-                part="id,statistics,status,snippet"
-            ).execute()
-            youtube.close()
-
-            if response.get("items"):
-                output = {
-                    'success': True,
-                    'is_available': False,
-                    'data': {
-                        'response': response
-                    }
-                }
-                return output
-            else:
-                return False
-
-        except googleapiclient.errors.HttpError as e:
-            print(f"An error occurred: {e}")
             return None
 
-    ##TODO IMPLEMENT TIKTOK
-    def tiktok_checker(self, handle):
+    def instagram_checker(self, handle):
+        try:
+            self.guest = Guest()
+            profile = self.guest.profile(handle)
+            if profile is not None:
+                json_data = {
+                        "handle": handle,
+                        "full_name": profile.full_name,
+                        "biography": profile.biography,
+                        "followers": profile.follower_count,
+                        "following": profile.following_count
+                }
+                return json_data
+            else:
+                return None
+
+        except Exception as e:
+            print(f"Unexpected error occurred : {str(e)}")
+
+
+    #TODO FIX YOUTUBE
+    def youtube_checker(self, handle):
         pass
-        """session = requests.Session()
-        headers = {
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36",
-            "accept-encoding": "gzip, deflate, br",
-            "accept-language": "en-US",
-            "content-type": "application/json"
-        }
-        c = session.get(f'https://www.tiktok.com/@{handle}', headers=headers, timeout=60)
-        check = c.status_code
-        if c.status_code == 200:
-            soup = BeautifulSoup(c.content, "html.parser")
-            # Look for elements that indicate the existence of the account
-            account_not_found = soup.find("h1", text="This page isn't available.")
-            print(soup.text)
-            if account_not_found:
+        # try:
+        #     url = f'https://www.youtube.com/@{handle}'
+        #
+        #     driver = webdriver.Chrome()  # Replace with the appropriate WebDriver
+        #     driver.get(url)
+        #
+        #     try:
+        #         print("entered youtube")
+        #         profile_name_element = driver.find_element('css selector', '')
+        #         profile_name = profile_name_element.text
+        #         print(f"Youtube profile name = {profile_name}")
+        #         output = {
+        #             'profile_name': profile_name
+        #         }
+        #         driver.quit()
+        #         return output
+        #     except Exception as e:
+        #         driver.quit()
+        #         return None
+        #
+        # except Exception as e:
+        #     print(f"Unexpected error occurred : {str(e)}")
+
+    def tiktok_checker(self, handle):
+        try:
+            url = f'https://www.tiktok.com/@{handle}'
+
+            driver = webdriver.Chrome()  # Replace with the appropriate WebDriver
+            driver.get(url)
+
+            try:
+                profile_name_element = driver.find_element('css selector', '.ekmpd5l3 .e1457k4r8')
+                profile_name = profile_name_element.text
                 output = {
-                    'success': True,
-                    'is_available': True,
+                    'profile_name': profile_name
+                }
+                driver.quit()
+                return output
+            except Exception as e:
+                driver.quit()
+                return None
+
+        except Exception as e:
+            print(f"Unexpected error occurred : {str(e)}")
+
+
+    def twitter_checker(self, handle):
+        try:
+            url = f'https://twitter.com/{handle}'
+
+            driver = webdriver.Chrome()  # Replace with the appropriate WebDriver
+            driver.get(url)
+
+            try:
+                profile_name_element = driver.find_element('css selector', '.r-1w6e6rj')
+                not_found = profile_name_element.text
+                if not not_found:
+                    return None
+                output = {
+                    'Handle': f"@{handle}"
+                }
+                driver.quit()
+                return output
+            except Exception as e:
+                driver.quit()
+                return None
+
+        except Exception as e:
+            print(f"Unexpected error occurred : {str(e)}")
+
+
+
+    def twitch_checker(self,handle):
+        try:
+            twitch = TwitchAPI(client_id=os.environ.get('twitch_client_id'), client_secret=os.environ.get('twitch_client_secret'))
+            response = twitch.check_user(handle)
+            data = response.json()
+            if data['data']:
+                output = {
+                    'response': response.json()
                 }
                 return output
             else:
-                return False
-        else:
-            raise Exception("Unexpected error")"""
+                return None
 
-    def twitch_checker(self,handle):
-        twitch = TwitchAPI(client_id='dd4yshe8vdg2j78mk6wqf3896ggn75', client_secret='qjm1y37x6840c60y3fb4qk1rf2sg9d')
-        response = twitch.check_user(handle)
-        if response.status_code:
-            output = {
-                'success': True,
-                'is_available': False,
-                'response': response.json()
-            }
-            return output
-        else:
-            return False
+        except Exception as e:
+            print(f"Unexpected error occurred : {str(e)}")
+
+    def facebook_checker(self,handle):
+        try:
+            url = f'https://m.facebook.com/{handle}'
+
+            driver = webdriver.Chrome()  # Replace with the appropriate WebDriver
+            driver.get(url)
+
+            try:
+                profile_name_element = driver.find_element('css selector', '._391s')
+                profile_name = profile_name_element.text
+                output = {
+                    'profile_name': profile_name
+                }
+                driver.quit()
+                return output
+            except Exception as e:
+                driver.quit()
+                return None
+
+        except Exception as e:
+            print(f"Unexpected error occurred : {str(e)}")
+
 
 class TwitchAPI:
     def __init__(self, client_id, client_secret):
@@ -141,7 +190,6 @@ class TwitchAPI:
             'Client-ID': self.client_id
         }
         response = requests.get(url, headers=headers)
-
         if response.status_code == 401:
             self.getAccessToken()
             headers['Authorization'] = f'Bearer {os.environ.get("twitch_access_token")}'
@@ -191,48 +239,144 @@ def check_handle():
         response_data = {"success": "false", "error": "social_network not provided"}
         return jsonify(response_data), 400
 
+    if social_network == "twitter":
+        response = social_media_checker.twitter_checker(handle)
+        if response:
+            user_data = {
+                "is_available": False,
+                "success": True,
+                "data": {
+                    "response": response
+                }
+            }
+            return user_data, 200
+        else:
+            return jsonify({"available": True, "success": True})
 
     if social_network == "reddit":
         response = social_media_checker.reddit_checker(handle)
         if response:
-            return response, 200
+            user_data = {
+                "is_available": False,
+                "success": True,
+                "data": {
+                    "response": response
+                }
+            }
+            return user_data, 200
         else:
-            return jsonify({"available": "true", "success": "true"})
+            return jsonify({"available": True, "success": True})
 
 
     if social_network == 'tiktok':
         response = social_media_checker.tiktok_checker(handle)
         if response:
-            return response, 200
+            user_data = {
+                "is_available": False,
+                "success": True,
+                "data": {
+                    "response": response
+                }
+            }
+            return user_data, 200
         else:
-            return jsonify({'success': False, 'error': "Unexpected error occurred"})
+            return jsonify({"available": True, "success": True})
 
     if social_network == 'twitch':
         response = social_media_checker.twitch_checker(handle)
         if response:
-            return response, 200
+            user_data = {
+                "is_available": False,
+                "success": True,
+                "data": {
+                    "response": response
+                }
+            }
+            return user_data, 200
         else:
-            return jsonify({'success': False, 'error': "Unexpected error occurred"})
+            return jsonify({"available": True, "success": True})
 
 
     if social_network == "youtube":
         try:
             response = social_media_checker.youtube_checker(handle)
             if response:
-                return response, 200
+                user_data = {
+                    "is_available": False,
+                    "success": True,
+                    "data": {
+                        "response": response
+                    }
+                }
+                return user_data, 200
             else:
-                return jsonify({"available": "true", "success": "true"})
+                return jsonify({"available": True, "success": True})
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    if social_network == "facebook":
+        try:
+            response = social_media_checker.facebook_checker(handle)
+            if response:
+                user_data = {
+                    "is_available": False,
+                    "success": True,
+                    "data": {
+                        "response": response
+                    }
+                }
+                return user_data, 200
+            else:
+                return jsonify({"available": True, "success": True})
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
     if social_network == "instagram":
-        in_use = social_media_checker.instagram_checker(handle)
-        if in_use:
-            return jsonify(in_use)
+        response = social_media_checker.instagram_checker(handle)
+        if response:
+            user_data = {
+                "is_available": False,
+                "success": True,
+                "data": {
+                    "response": response
+                }
+            }
+            return user_data, 200
         else:
             return jsonify({"available": "true", "success": "true"})
     else:
-        return jsonify({"error": "Social Network not available"}), 404
+        return jsonify({"success": False,"error": "Social Network not available"}), 404
+
+
+@app.route('/checkall_handle', methods=['GET'])
+def checkall_handle():
+    handle = request.args.get('handle')
+    social_media_checker = SocialMediaChecker()
+
+    pool = Pool(processes=6)  # Number of processes for parallel processing
+    results = pool.starmap(check_single_handle, [(handle, social_media_checker)])
+    pool.close()
+    pool.join()
+
+    return jsonify(results[0]), 200
+
+def check_single_handle(handle, social_media_checker):
+    results = {
+        'success': True,
+        'data': {
+            ##True if available, False if not available
+            'twitter': False if social_media_checker.twitter_checker(handle) else True,
+            'facebook': False if social_media_checker.facebook_checker(handle) else True,
+            'reddit': False if social_media_checker.reddit_checker(handle) else True,
+            'tiktok': False if social_media_checker.tiktok_checker(handle) else True,
+            #'youtube': False if social_media_checker.youtube_checker(handle) else True,
+            'instagram': False if social_media_checker.instagram_checker(handle) else True,
+            'twitch': False if social_media_checker.twitch_checker(handle) else True
+        }
+    }
+    return results
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
