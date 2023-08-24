@@ -75,7 +75,7 @@ class SocialMediaChecker:
         #
         #     try:
         #         print("entered youtube")
-        #         profile_name_element = driver.find_element('css selector', '')
+        #         profile_name_element = driver.find_element_by_id('channel-handle')
         #         profile_name = profile_name_element.text
         #         print(f"Youtube profile name = {profile_name}")
         #         output = {
@@ -353,7 +353,7 @@ def checkall_handle():
     handle = request.args.get('handle')
     social_media_checker = SocialMediaChecker()
 
-    pool = Pool(processes=6)  # Number of processes for parallel processing
+    pool = Pool(processes=7)  # Number of processes for parallel processing
     results = pool.starmap(check_single_handle, [(handle, social_media_checker)])
     pool.close()
     pool.join()
@@ -369,7 +369,7 @@ def check_single_handle(handle, social_media_checker):
             'facebook': False if social_media_checker.facebook_checker(handle) else True,
             'reddit': False if social_media_checker.reddit_checker(handle) else True,
             'tiktok': False if social_media_checker.tiktok_checker(handle) else True,
-            #'youtube': False if social_media_checker.youtube_checker(handle) else True,
+            'youtube': False if social_media_checker.youtube_checker(handle) else True,
             'instagram': False if social_media_checker.instagram_checker(handle) else True,
             'twitch': False if social_media_checker.twitch_checker(handle) else True
         }
