@@ -18,6 +18,7 @@ try:
     import os
     import googleapiclient.discovery
     import googleapiclient.errors
+    from googleapiclient.discovery import build
     import prawcore
     from multiprocessing import Pool
     import requests
@@ -71,57 +72,39 @@ class SocialMediaChecker:
         except Exception as e:
             print(f"Unexpected error occurred : {str(e)}")
 
-
-    #TODO FIX YOUTUBE
     def youtube_checker(self, handle):
         try:
-            url = f'https://www.youtube.com/@{handle}'
+            API_KEY = os.environ.get('yt_API_KEY')
 
-            options = Options()
-            options.add_experimental_option("detach", True)
-            driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)  # Replace with the appropriate WebDriver
-            driver.get(url)
+            youtube = build('youtube', 'v3', developerKey=API_KEY)
+            response = youtube.search().list(
+                part='id,snippet',
+                q=handle,
+                type='channel'
+            ).execute()
 
-            try:
-                print("entered youtube")
-                reject_cookies_button_class = "VfPpkd-LgbsSe"  # Replace with the appropriate class
-                element = WebDriverWait(driver, 5).until(
-                    EC.element_to_be_clickable((By.CLASS_NAME, reject_cookies_button_class))
-                )
-                driver.execute_script("window.scrollBy(0,500)", "")
-                actions = ActionChains(driver)
-                actions.move_to_element(element)
-                actions.double_click(element)
-                actions.perform()
+            print(response)
+            if 'items' in response and len(response['items']) > 0:
+                channel = response['items'][0]
+                print(channel)
+                channel_id = channel['id']['channelId']
+                channel_title = channel['snippet']['title']
+                channel_description = channel['snippet']['description']
+                print(f"Channel '{channel_title}' with ID '{channel_id}' exists.")
 
-                email_input_class = "whsOnd.zHQkBf"
-                email_input = WebDriverWait(driver, 5).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, email_input_class))
-                )
-                email_input.send_keys('thropyoperations@gmail.com')
-                next_button = WebDriverWait(driver, 5).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, 'VfPpkd-LgbsSe.VfPpkd-LgbsSe-OWXEXe-k8QpJ.VfPpkd-LgbsSe-OWXEXe-dgl2Hf.nCP5yc.AjY5Oe.DuMIQc.LQeN7.qIypjc.TrZEUc.lw1w4b'))
-                )
-                next_button.click()
-                time.sleep(1)
-                captcha_text = driver.find_element(By.NAME, 'ca')
-
-                captcha_text.send_keys('A Tua Mãe')
-
-                next_button_class = 'VfPpkd-LgbsSe VfPpkd-LgbsSe-OWXEXe-k8QpJ VfPpkd-LgbsSe-OWXEXe-dgl2Hf nCP5yc AjY5Oe DuMIQc LQeN7 qIypjc TrZEUclw1w4b'.replace(' ', '.')
-                next_button = driver.find_element(By.CLASS_NAME, next_button_class)
-                next_button.click()
-                channel_handle = driver.find_element(By.ID, 'channel-handle')
-                profile_name = channel_handle.text
-
-
-                print(f"Youtube profile name = {profile_name}")
                 output = {
-                    'profile_name': profile_name
+                    'channel_id': channel_id,
+                    'channel_name': handle,
+                    'channel_title': channel_title
                 }
                 return output
-            except Exception as e:
+
+            else:
+                print(f"Channel '{handle}' does not exist.")
                 return None
+
+        except Exception as e:
+            print(f'Error : {str(e)}')
 
         except Exception as e:
             print(f"Unexpected error occurred : {str(e)}")
