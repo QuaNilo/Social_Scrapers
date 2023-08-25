@@ -67,7 +67,16 @@ class SocialMediaChecker:
                 }
                 return json_data
             else:
-                return None
+                instagram = Instagram(handle)
+                response = instagram.checkUsername()
+                if response:
+                    json_data = {
+                        "handle": handle,
+                        'response': 'It may mean that the name was used before and the account was suspended or removed from Instagram, or that the username is not allowed, or that it is simply not available for use.'
+                    }
+                    return json_data
+                else:
+                    return None
 
         except Exception as e:
             print(f"Unexpected error occurred : {str(e)}")
@@ -196,6 +205,50 @@ class SocialMediaChecker:
         except Exception as e:
             print(f"Unexpected error occurred : {str(e)}")
 
+class Instagram():
+
+    def __init__(self, handle):
+        self.handle = handle
+        self.init_driver()
+
+    def init_driver(self):
+        url = 'https://www.instagram.com/accounts/emailsignup/'
+        options = Options()
+        options.add_experimental_option('detach', False)
+        self.driver = driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+        self.driver.get(url)
+
+    def checkUsername(self):
+
+        cookies = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.CLASS_NAME, '_a9_1'))).click()
+
+        email_input = WebDriverWait(self.driver, 5).until(
+            EC.presence_of_element_located(((By.NAME, 'emailOrPhone')))
+        )
+        email_input.send_keys('quanojo@gmail.com')
+        time.sleep(0.2)
+
+        fullName_input = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.NAME, 'fullName')))
+        fullName_input.send_keys('johnnypecados')
+        time.sleep(0.2)
+
+        username_input = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.NAME, 'username')))
+        username_input.send_keys(self.handle)
+        time.sleep(0.2)
+
+        password_input = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.NAME, 'password')))
+        password_input.send_keys('randompassword1235gndfsjaksda')
+
+        next_button = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.XPATH, "//button[text()='Next']"))).click()
+
+        error_taken = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.ID, "ssfErrorAlert")))
+        print(error_taken.text)
+        if error_taken.text == 'A user with that username already exists.':
+            return True
+        else:
+            return None
+
+
 
 class TwitchAPI:
     def __init__(self, client_id, client_secret):
@@ -250,8 +303,12 @@ def check_handle():
     handle = request.args.get('handle')
     social_media_checker = SocialMediaChecker()
 
+    if len(handle) < 5 and social_network == 'facebook':
+        response_data = {"success": False, "error": "Handle needs to be at least 5 characters"}
+        return jsonify(response_data), 400
+
     if not handle:
-        response_data = {"success": "false", "error": "Handle not provided"}
+        response_data = {"success": False, "error": "Handle not provided"}
         return jsonify(response_data), 400
 
     if not social_network:
@@ -383,7 +440,7 @@ def check_single_handle(handle, social_media_checker):
         'data': {
             ##True if available, False if not available
             'twitter': False if social_media_checker.twitter_checker(handle) else True,
-            'facebook': False if social_media_checker.facebook_checker(handle) else True,
+            'facebook': False if social_media_checker.facebook_checker(handle) or len(handle) < 5 else True,
             'reddit': False if social_media_checker.reddit_checker(handle) else True,
             'tiktok': False if social_media_checker.tiktok_checker(handle) else True,
             'youtube': False if social_media_checker.youtube_checker(handle) else True,
