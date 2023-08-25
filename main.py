@@ -5,8 +5,16 @@ try:
     import argparse
     import json
     from selenium import webdriver
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.common.by import By
+    from webdriver_manager.chrome import ChromeDriverManager
+    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.common.action_chains import ActionChains
+    from selenium.webdriver.chrome.service import Service
+    from selenium.webdriver.support import expected_conditions as EC
     import subprocess
     import praw
+    import time
     import os
     import googleapiclient.discovery
     import googleapiclient.errors
@@ -66,29 +74,57 @@ class SocialMediaChecker:
 
     #TODO FIX YOUTUBE
     def youtube_checker(self, handle):
-        pass
-        # try:
-        #     url = f'https://www.youtube.com/@{handle}'
-        #
-        #     driver = webdriver.Chrome()  # Replace with the appropriate WebDriver
-        #     driver.get(url)
-        #
-        #     try:
-        #         print("entered youtube")
-        #         profile_name_element = driver.find_element_by_id('channel-handle')
-        #         profile_name = profile_name_element.text
-        #         print(f"Youtube profile name = {profile_name}")
-        #         output = {
-        #             'profile_name': profile_name
-        #         }
-        #         driver.quit()
-        #         return output
-        #     except Exception as e:
-        #         driver.quit()
-        #         return None
-        #
-        # except Exception as e:
-        #     print(f"Unexpected error occurred : {str(e)}")
+        try:
+            url = f'https://www.youtube.com/@{handle}'
+
+            options = Options()
+            options.add_experimental_option("detach", True)
+            driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)  # Replace with the appropriate WebDriver
+            driver.get(url)
+
+            try:
+                print("entered youtube")
+                reject_cookies_button_class = "VfPpkd-LgbsSe"  # Replace with the appropriate class
+                element = WebDriverWait(driver, 5).until(
+                    EC.element_to_be_clickable((By.CLASS_NAME, reject_cookies_button_class))
+                )
+                driver.execute_script("window.scrollBy(0,500)", "")
+                actions = ActionChains(driver)
+                actions.move_to_element(element)
+                actions.double_click(element)
+                actions.perform()
+
+                email_input_class = "whsOnd.zHQkBf"
+                email_input = WebDriverWait(driver, 5).until(
+                    EC.presence_of_element_located((By.CLASS_NAME, email_input_class))
+                )
+                email_input.send_keys('thropyoperations@gmail.com')
+                next_button = WebDriverWait(driver, 5).until(
+                    EC.presence_of_element_located((By.CLASS_NAME, 'VfPpkd-LgbsSe.VfPpkd-LgbsSe-OWXEXe-k8QpJ.VfPpkd-LgbsSe-OWXEXe-dgl2Hf.nCP5yc.AjY5Oe.DuMIQc.LQeN7.qIypjc.TrZEUc.lw1w4b'))
+                )
+                next_button.click()
+                time.sleep(1)
+                captcha_text = driver.find_element(By.NAME, 'ca')
+
+                captcha_text.send_keys('A Tua Mãe')
+
+                next_button_class = 'VfPpkd-LgbsSe VfPpkd-LgbsSe-OWXEXe-k8QpJ VfPpkd-LgbsSe-OWXEXe-dgl2Hf nCP5yc AjY5Oe DuMIQc LQeN7 qIypjc TrZEUclw1w4b'.replace(' ', '.')
+                next_button = driver.find_element(By.CLASS_NAME, next_button_class)
+                next_button.click()
+                channel_handle = driver.find_element(By.ID, 'channel-handle')
+                profile_name = channel_handle.text
+
+
+                print(f"Youtube profile name = {profile_name}")
+                output = {
+                    'profile_name': profile_name
+                }
+                return output
+            except Exception as e:
+                return None
+
+        except Exception as e:
+            print(f"Unexpected error occurred : {str(e)}")
 
     def tiktok_checker(self, handle):
         try:
@@ -267,7 +303,6 @@ def check_handle():
         else:
             return jsonify({"available": True, "success": True})
 
-
     if social_network == 'tiktok':
         response = social_media_checker.tiktok_checker(handle)
         if response:
@@ -295,7 +330,6 @@ def check_handle():
             return user_data, 200
         else:
             return jsonify({"available": True, "success": True})
-
 
     if social_network == "youtube":
         try:
