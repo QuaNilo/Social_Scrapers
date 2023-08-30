@@ -23,6 +23,7 @@ try:
     from multiprocessing import Pool
     import requests
     import dotenv
+    import chromedriver_binary
     import requests
     from bs4 import BeautifulSoup
 
@@ -35,7 +36,16 @@ app = Flask(__name__)
 
 class SocialMediaChecker:
     def __init__(self):
+        self.initdriver()
         load_dotenv("variables.env")
+    def initdriver(self):
+        options = Options()
+        options.add_argument("--headless")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_experimental_option('detach', False)
+        self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+
 
     def reddit_checker(self, handle):
         try:
@@ -121,20 +131,16 @@ class SocialMediaChecker:
     def tiktok_checker(self, handle):
         try:
             url = f'https://www.tiktok.com/@{handle}'
-
-            driver = webdriver.Chrome()  # Replace with the appropriate WebDriver
-            driver.get(url)
+            self.driver.get(url)
 
             try:
-                profile_name_element = driver.find_element('css selector', '.ekmpd5l3 .e1457k4r8')
+                profile_name_element = self.driver.find_element('css selector', '.ekmpd5l3 .e1457k4r8')
                 profile_name = profile_name_element.text
                 output = {
                     'profile_name': profile_name
                 }
-                driver.quit()
                 return output
             except Exception as e:
-                driver.quit()
                 return None
 
         except Exception as e:
@@ -144,25 +150,22 @@ class SocialMediaChecker:
     def twitter_checker(self, handle):
         try:
             url = f'https://twitter.com/{handle}'
-
-            driver = webdriver.Chrome()  # Replace with the appropriate WebDriver
-            driver.get(url)
+            self.driver.get(url)
 
             try:
-                profile_name_element = driver.find_element('css selector', '.r-1w6e6rj')
+                profile_name_element = self.driver.find_element('css selector', '.r-1w6e6rj')
                 not_found = profile_name_element.text
                 if not not_found:
                     return None
                 output = {
                     'Handle': f"@{handle}"
                 }
-                driver.quit()
                 return output
             except Exception as e:
-                driver.quit()
                 return None
 
         except Exception as e:
+            self.driver.quit()
             print(f"Unexpected error occurred : {str(e)}")
 
 
@@ -186,20 +189,16 @@ class SocialMediaChecker:
     def facebook_checker(self,handle):
         try:
             url = f'https://m.facebook.com/{handle}'
-
-            driver = webdriver.Chrome()  # Replace with the appropriate WebDriver
-            driver.get(url)
+            self.driver.get(url)
 
             try:
-                profile_name_element = driver.find_element('css selector', '._391s')
+                profile_name_element = self.driver.find_element('css selector', '._391s')
                 profile_name = profile_name_element.text
                 output = {
                     'profile_name': profile_name
                 }
-                driver.quit()
                 return output
             except Exception as e:
-                driver.quit()
                 return None
 
         except Exception as e:
@@ -214,34 +213,41 @@ class Instagram():
     def init_driver(self):
         url = 'https://www.instagram.com/accounts/emailsignup/'
         options = Options()
-        options.add_experimental_option('detach', False)
+        options.add_argument("--headless")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_experimental_option('detach', True)
         self.driver = driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
         self.driver.get(url)
 
     def checkUsername(self):
 
-        cookies = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.CLASS_NAME, '_a9_1'))).click()
+        try:
+            cookies = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.CLASS_NAME, '_a9_1')))
+            cookies.click()
+        except Exception as e:
+            print(f"Cookies button not found. Continuing without clicking. {str(e)}")
 
-        email_input = WebDriverWait(self.driver, 5).until(
+        email_input = WebDriverWait(self.driver, 2).until(
             EC.presence_of_element_located(((By.NAME, 'emailOrPhone')))
         )
         email_input.send_keys('quanojo@gmail.com')
         time.sleep(0.2)
 
-        fullName_input = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.NAME, 'fullName')))
+        fullName_input = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.NAME, 'fullName')))
         fullName_input.send_keys('johnnypecados')
         time.sleep(0.2)
 
-        username_input = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.NAME, 'username')))
+        username_input = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.NAME, 'username')))
         username_input.send_keys(self.handle)
         time.sleep(0.2)
 
-        password_input = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.NAME, 'password')))
+        password_input = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.NAME, 'password')))
         password_input.send_keys('randompassword1235gndfsjaksda')
 
-        next_button = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.XPATH, "//button[text()='Next']"))).click()
+        next_button = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.XPATH, "//button[text()='Next']"))).click()
 
-        error_taken = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.ID, "ssfErrorAlert")))
+        error_taken = WebDriverWait(self.driver, 4).until(EC.presence_of_element_located((By.ID, "ssfErrorAlert")))
         print(error_taken.text)
         if error_taken.text == 'A user with that username already exists.':
             return True
@@ -426,13 +432,8 @@ def check_handle():
 def checkall_handle():
     handle = request.args.get('handle')
     social_media_checker = SocialMediaChecker()
-
-    pool = Pool(processes=7)  # Number of processes for parallel processing
-    results = pool.starmap(check_single_handle, [(handle, social_media_checker)])
-    pool.close()
-    pool.join()
-
-    return jsonify(results[0]), 200
+    results = check_single_handle(handle, social_media_checker)
+    return jsonify(results), 200
 
 def check_single_handle(handle, social_media_checker):
     results = {
