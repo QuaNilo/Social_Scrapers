@@ -2,17 +2,14 @@ try:
     from dotenv import load_dotenv
     from ensta import Guest
     from flask import Flask, request, jsonify
-    import argparse
     import json
     from selenium import webdriver
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.common.by import By
     from webdriver_manager.chrome import ChromeDriverManager
     from selenium.webdriver.chrome.options import Options
-    from selenium.webdriver.common.action_chains import ActionChains
     from selenium.webdriver.chrome.service import Service
     from selenium.webdriver.support import expected_conditions as EC
-    import subprocess
     import praw
     import time
     import os
@@ -20,20 +17,19 @@ try:
     import googleapiclient.errors
     from googleapiclient.discovery import build
     import prawcore
-    from multiprocessing import Pool
     import requests
     import dotenv
     import chromedriver_binary
-    import requests
-    from bs4 import BeautifulSoup
 
-except ModuleNotFoundError:
-    print("Please download dependencies from requirements.txt")
+except ModuleNotFoundError as e:
+    print(f"Please download dependencies from requirements.txt : {str(e)}")
 except Exception as ex:
     print(ex)
 
 app = Flask(__name__)
 
+
+##TODO Facebook asks for a login on some user profiles and not others, find a way to log in selenium to scrape
 class SocialMediaChecker:
     def __init__(self):
         self.initdriver()
@@ -41,11 +37,16 @@ class SocialMediaChecker:
     def initdriver(self):
         options = Options()
         options.add_argument("--headless")
+        options.add_argument("--window-size=1920,1080")
         options.add_argument("--no-sandbox")
+        user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36'
+        options.add_argument(f'user-agent={user_agent}')
         options.add_argument("--disable-dev-shm-usage")
         options.add_experimental_option('detach', False)
         self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
+    def killdriver(self):
+        self.driver.quit()
 
     def reddit_checker(self, handle):
         try:
@@ -58,9 +59,11 @@ class SocialMediaChecker:
             redditor = self.reddit.redditor(handle)
             if redditor:
                 user_data = redditor._fetch_data()
+                print("Reddit : Found user with that handle")
                 return user_data
 
         except prawcore.exceptions.NotFound:
+            print("Reddit : Couldn't find user with that handle")
             return None
 
     def instagram_checker(self, handle):
@@ -75,17 +78,26 @@ class SocialMediaChecker:
                         "followers": profile.follower_count,
                         "following": profile.following_count
                 }
+                print("Instagram : Found user with that handle")
                 return json_data
             else:
                 instagram = Instagram(handle)
-                response = instagram.checkUsername()
+                print("Instagram : Couldn't find user with that handle")
+                try:
+                    response = instagram.checkUsername()
+                    print("Instagram : Checking if handle is available....")
+                except Exception as e:
+                    print('Critical Error getting instagram availability')
+
                 if response:
                     json_data = {
                         "handle": handle,
                         'response': 'It may mean that the name was used before and the account was suspended or removed from Instagram, or that the username is not allowed, or that it is simply not available for use.'
                     }
+                    print("Instagram : handle is not available")
                     return json_data
                 else:
+                    print("Instagram : Handle is available")
                     return None
 
         except Exception as e:
@@ -102,14 +114,12 @@ class SocialMediaChecker:
                 type='channel'
             ).execute()
 
-            print(response)
             if 'items' in response and len(response['items']) > 0:
                 channel = response['items'][0]
-                print(channel)
                 channel_id = channel['id']['channelId']
                 channel_title = channel['snippet']['title']
                 channel_description = channel['snippet']['description']
-                print(f"Channel '{channel_title}' with ID '{channel_id}' exists.")
+                print("Youtube : Found user with that handle")
 
                 output = {
                     'channel_id': channel_id,
@@ -119,7 +129,7 @@ class SocialMediaChecker:
                 return output
 
             else:
-                print(f"Channel '{handle}' does not exist.")
+                print("Youtube : Couldn't find user with that handle")
                 return None
 
         except Exception as e:
@@ -134,13 +144,14 @@ class SocialMediaChecker:
             self.driver.get(url)
 
             try:
-                profile_name_element = self.driver.find_element('css selector', '.ekmpd5l3 .e1457k4r8')
-                profile_name = profile_name_element.text
+                profile_name = WebDriverWait(self.driver, 3).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.ekmpd5l3 .e1457k4r8'))).text
                 output = {
                     'profile_name': profile_name
                 }
+                print("tiktok : Found user with that handle")
                 return output
             except Exception as e:
+                print("tiktok : Couldn't find user with that handle")
                 return None
 
         except Exception as e:
@@ -153,22 +164,29 @@ class SocialMediaChecker:
             self.driver.get(url)
 
             try:
-                profile_name_element = self.driver.find_element('css selector', '.r-1w6e6rj')
-                not_found = profile_name_element.text
-                if not not_found:
+                # following = self.driver.find_element('css selector', '.r-1mf7evn .r-b88u0q .r-qvutc0').text
+                following = WebDriverWait(self.driver, 2).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, '.r-1mf7evn .r-b88u0q .r-qvutc0'))).text
+                if not following:
                     return None
-                output = {
-                    'Handle': f"@{handle}"
-                }
-                return output
+                else:
+                    followers = WebDriverWait(self.driver, 2).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, '.r-1mf7evn+ .css-1dbjc4n .r-b88u0q .r-qvutc0'))).text
+                    output = {
+                        'Handle': f"@{handle}",
+                        'followers': str(followers),
+                        'following': str(following)
+                    }
+                    print("Twitter : Found user with that handle")
+                    return output
+
             except Exception as e:
+                print("Twitter : Couldn't find user with that handle")
                 return None
 
         except Exception as e:
             self.driver.quit()
             print(f"Unexpected error occurred : {str(e)}")
-
-
 
     def twitch_checker(self,handle):
         try:
@@ -179,8 +197,10 @@ class SocialMediaChecker:
                 output = {
                     'response': response.json()
                 }
+                print("Twitch : Found user with that handle")
                 return output
             else:
+                print("Twitch : Couldn't find user with that handle")
                 return None
 
         except Exception as e:
@@ -192,13 +212,14 @@ class SocialMediaChecker:
             self.driver.get(url)
 
             try:
-                profile_name_element = self.driver.find_element('css selector', '._391s')
-                profile_name = profile_name_element.text
+                profile_name = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.CSS_SELECTOR, '._391s'))).text
                 output = {
                     'profile_name': profile_name
                 }
+                print("Facebook : Found user with that handle")
                 return output
             except Exception as e:
+                print("Facebook : Couldn't find user with that handle")
                 return None
 
         except Exception as e:
@@ -214,38 +235,41 @@ class Instagram():
         url = 'https://www.instagram.com/accounts/emailsignup/'
         options = Options()
         options.add_argument("--headless")
+        options.add_argument("--window-size=1920,1080")
         options.add_argument("--no-sandbox")
+        user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36'
+        options.add_argument(f'user-agent={user_agent}')
         options.add_argument("--disable-dev-shm-usage")
-        options.add_experimental_option('detach', True)
-        self.driver = driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+        options.add_experimental_option('detach', False)
+        self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
         self.driver.get(url)
 
     def checkUsername(self):
 
         try:
-            cookies = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.CLASS_NAME, '_a9_1')))
+            cookies = WebDriverWait(self.driver, 4).until(EC.presence_of_element_located((By.CLASS_NAME, '_a9_1')))
             cookies.click()
         except Exception as e:
-            print(f"Cookies button not found. Continuing without clicking. {str(e)}")
+            print(f"Cookies button not found. {str(e)} \n Continuing without clicking. ")
 
-        email_input = WebDriverWait(self.driver, 2).until(
+        email_input = WebDriverWait(self.driver, 4).until(
             EC.presence_of_element_located(((By.NAME, 'emailOrPhone')))
         )
         email_input.send_keys('quanojo@gmail.com')
         time.sleep(0.2)
 
-        fullName_input = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.NAME, 'fullName')))
+        fullName_input = WebDriverWait(self.driver, 4).until(EC.presence_of_element_located((By.NAME, 'fullName')))
         fullName_input.send_keys('johnnypecados')
         time.sleep(0.2)
 
-        username_input = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.NAME, 'username')))
+        username_input = WebDriverWait(self.driver, 4).until(EC.presence_of_element_located((By.NAME, 'username')))
         username_input.send_keys(self.handle)
         time.sleep(0.2)
 
-        password_input = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.NAME, 'password')))
+        password_input = WebDriverWait(self.driver, 4).until(EC.presence_of_element_located((By.NAME, 'password')))
         password_input.send_keys('randompassword1235gndfsjaksda')
 
-        next_button = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.XPATH, "//button[text()='Next']"))).click()
+        next_button = WebDriverWait(self.driver, 4).until(EC.presence_of_element_located((By.XPATH, "//button[text()='Next']"))).click()
 
         error_taken = WebDriverWait(self.driver, 4).until(EC.presence_of_element_located((By.ID, "ssfErrorAlert")))
         print(error_taken.text)
@@ -253,8 +277,6 @@ class Instagram():
             return True
         else:
             return None
-
-
 
 class TwitchAPI:
     def __init__(self, client_id, client_secret):
@@ -308,78 +330,104 @@ def check_handle():
     social_network = request.args.get('social_network')
     handle = request.args.get('handle')
     social_media_checker = SocialMediaChecker()
-
-    if len(handle) < 5 and social_network == 'facebook':
-        response_data = {"success": False, "error": "Handle needs to be at least 5 characters"}
-        return jsonify(response_data), 400
+    valid_social_networks = ['twitter', 'instagram', 'reddit', 'tiktok', 'youtube', 'twitch'] ##Facebook removed temporarily
 
     if not handle:
-        response_data = {"success": False, "error": "Handle not provided"}
+        response_data = {'success': False,'error': {'type': 'HandleNotProvided', 'message': "Handle not provided"}}
         return jsonify(response_data), 400
 
+    # if len(handle) < 5 and social_network == 'facebook':
+    #     response_data = {'success': False, 'error': {'type': 'invalidHandle', 'message': f"Handle({str(handle)}) needs to be at least 5 characters"}}
+    #     return jsonify(response_data), 400
+
     if not social_network:
-        response_data = {"success": "false", "error": "social_network not provided"}
+        response_data = {'success': False, 'error': {'type': 'socialNotProvided', 'message': "social network not provided"}}
+        return jsonify(response_data), 400
+
+    if social_network not in valid_social_networks:
+        response_data = {'success': False, 'error': {'type': 'invalidSocial', 'message': f"Social network is not valid, please choose a social network from this list : {valid_social_networks}"}}
         return jsonify(response_data), 400
 
     if social_network == "twitter":
-        response = social_media_checker.twitter_checker(handle)
-        if response:
-            user_data = {
-                "is_available": False,
-                "success": True,
-                "data": {
-                    "response": response
+        try:
+            response = social_media_checker.twitter_checker(handle)
+            social_media_checker.killdriver()
+            if response:
+                user_data = {
+                    "is_available": False,
+                    "success": True,
+                    "data": {
+                        "response": response
+                    }
                 }
-            }
-            return user_data, 200
-        else:
-            return jsonify({"available": True, "success": True})
+                return user_data, 200
+            else:
+                return jsonify({"is_available": True, "success": True, 'data': { 'response': [response]}})
+
+        except Exception as e:
+            return jsonify({"success": False, 'error': {'type': 'genericError', 'message': str(e)}})
 
     if social_network == "reddit":
-        response = social_media_checker.reddit_checker(handle)
-        if response:
-            user_data = {
-                "is_available": False,
-                "success": True,
-                "data": {
-                    "response": response
+        try:
+            response = social_media_checker.reddit_checker(handle)
+            social_media_checker.killdriver()
+            if response:
+                user_data = {
+                    "is_available": False,
+                    "success": True,
+                    "data": {
+                        "response": response
+                    }
                 }
-            }
-            return user_data, 200
-        else:
-            return jsonify({"available": True, "success": True})
+                return user_data, 200
+            else:
+                return jsonify({"is_available": True, "success": True, 'data': { 'response': [response]}})
+
+        except Exception as e:
+            return jsonify({"success": False, 'error': {'type': 'genericError', 'message': str(e)}})
 
     if social_network == 'tiktok':
-        response = social_media_checker.tiktok_checker(handle)
-        if response:
-            user_data = {
-                "is_available": False,
-                "success": True,
-                "data": {
-                    "response": response
+        try:
+            response = social_media_checker.tiktok_checker(handle)
+            social_media_checker.killdriver()
+            if response:
+                user_data = {
+                    "is_available": False,
+                    "success": True,
+                    "data": {
+                        "response": response
+                    }
                 }
-            }
-            return user_data, 200
-        else:
-            return jsonify({"available": True, "success": True})
+                return user_data, 200
+            else:
+                return jsonify({"is_available": True, "success": True, 'data': { 'response': [response]}})
+
+        except Exception as e:
+            return jsonify({"success": False, 'error': {'type': 'genericError', 'message': str(e)}})
 
     if social_network == 'twitch':
-        response = social_media_checker.twitch_checker(handle)
-        if response:
-            user_data = {
-                "is_available": False,
-                "success": True,
-                "data": {
-                    "response": response
+        try:
+            response = social_media_checker.twitch_checker(handle)
+            social_media_checker.killdriver()
+            if response:
+                user_data = {
+                    "is_available": False,
+                    "success": True,
+                    "data": {
+                        "response": response
+                    }
                 }
-            }
-            return user_data, 200
-        else:
-            return jsonify({"available": True, "success": True})
+                return user_data, 200
+            else:
+                return jsonify({"is_available": True, "success": True, 'data': { 'response': [response]}})
+
+        except Exception as e:
+            return jsonify({"success": False, 'error': {'type': 'genericError', 'message': str(e)}})
 
     if social_network == "youtube":
         try:
             response = social_media_checker.youtube_checker(handle)
+            social_media_checker.killdriver()
             if response:
                 user_data = {
                     "is_available": False,
@@ -390,48 +438,57 @@ def check_handle():
                 }
                 return user_data, 200
             else:
-                return jsonify({"available": True, "success": True})
+                return jsonify({"is_available": True, "success": True, 'data': { 'response': [response]}})
         except Exception as e:
-            return {'success': False, 'error': str(e)}
+            return jsonify({"success": False, 'error': {'type': 'genericError', 'message': str(e)}})
 
-    if social_network == "facebook":
-        try:
-            response = social_media_checker.facebook_checker(handle)
-            if response:
-                user_data = {
-                    "is_available": False,
-                    "success": True,
-                    "data": {
-                        "response": response
-                    }
-                }
-                return user_data, 200
-            else:
-                return jsonify({"available": True, "success": True})
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+    # if social_network == "facebook":
+    #     try:
+    #         response = social_media_checker.facebook_checker(handle)
+    #         social_media_checker.killdriver()
+    #         if response:
+    #             user_data = {
+    #                 "is_available": False,
+    #                 "success": True,
+    #                 "data": {
+    #                     "response": response
+    #                 }
+    #             }
+    #             return user_data, 200
+    #         else:
+    #             return jsonify({"is_available": True, "success": True, 'data': { 'response': [response]}})
+    #
+    #     except Exception as e:
+    #         return jsonify({"success": False, 'error': {'type': 'genericError', 'message': str(e)}})
 
     if social_network == "instagram":
-        response = social_media_checker.instagram_checker(handle)
-        if response:
-            user_data = {
-                "is_available": False,
-                "success": True,
-                "data": {
-                    "response": response
+        try:
+            response = social_media_checker.instagram_checker(handle)
+            social_media_checker.killdriver()
+            if response:
+                user_data = {
+                    "is_available": False,
+                    "success": True,
+                    "data": {
+                        "response": response
+                    }
                 }
-            }
-            return user_data, 200
-        else:
-            return jsonify({"available": "true", "success": "true"})
-    else:
-        return jsonify({"success": False,"error": "Social Network not available"}), 404
+                return user_data, 200
+            else:
+                return jsonify({"available": True, "success": True})
+        except Exception as e:
+            return jsonify({"success": False, 'error': {'type': 'genericError', 'message': str(e)}})
 
 
 @app.route('/checkall_handle', methods=['GET'])
 def checkall_handle():
     handle = request.args.get('handle')
     social_media_checker = SocialMediaChecker()
+
+    if not handle:
+        response_data = {'success': False,'error': {'type': 'HandleNotProvided', 'message': "Handle not provided"}}
+        return jsonify(response_data), 400
+
     results = check_single_handle(handle, social_media_checker)
     return jsonify(results), 200
 
@@ -441,7 +498,7 @@ def check_single_handle(handle, social_media_checker):
         'data': {
             ##True if available, False if not available
             'twitter': False if social_media_checker.twitter_checker(handle) else True,
-            'facebook': False if social_media_checker.facebook_checker(handle) or len(handle) < 5 else True,
+            #'facebook': False if social_media_checker.facebook_checker(handle) or len(handle) < 5 else True,
             'reddit': False if social_media_checker.reddit_checker(handle) else True,
             'tiktok': False if social_media_checker.tiktok_checker(handle) else True,
             'youtube': False if social_media_checker.youtube_checker(handle) else True,
@@ -449,11 +506,12 @@ def check_single_handle(handle, social_media_checker):
             'twitch': False if social_media_checker.twitch_checker(handle) else True
         }
     }
+    social_media_checker.killdriver()
     return results
 
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False)
 
 

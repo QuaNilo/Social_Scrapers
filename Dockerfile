@@ -18,12 +18,9 @@ RUN apt-get install -y google-chrome-stable
 
 
 
-# Set the PATH environment variable to include the locations
-# of the Chrome binary and ChromeDriver
-ENV PATH="$CHROME_BINARY_LOCATION:$CHROME_DRIVER_LOCATION:$PATH"
-
 #install python dependencies
 COPY requirements.txt /app/
+
 RUN python3 -m pip install --upgrade pip
 RUN python3 -m pip install --no-cache-dir -r requirements.txt
 
