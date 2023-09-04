@@ -29,7 +29,9 @@ except Exception as ex:
 app = Flask(__name__)
 
 
-##TODO Facebook asks for a login on some user profiles and not others, find a way to log in selenium to scrape
+#TODO Facebook asks for a login on some user profiles and not others, find a way to log in selenium to scrape
+#TODO twitter and instagram make it hard to pinpoint if handle is blocked due to account being suspended, or whatever reason they have
+
 class SocialMediaChecker:
     def __init__(self):
         self.initdriver()
@@ -59,11 +61,11 @@ class SocialMediaChecker:
             redditor = self.reddit.redditor(handle)
             if redditor:
                 user_data = redditor._fetch_data()
-                print("Reddit : Found user with that handle")
+                app.logger.info("Reddit : Found user with that handle")
                 return user_data
 
         except prawcore.exceptions.NotFound:
-            print("Reddit : Couldn't find user with that handle")
+            app.logger.info("Reddit : Couldn't find user with that handle")
             return None
 
     def instagram_checker(self, handle):
@@ -78,30 +80,27 @@ class SocialMediaChecker:
                         "followers": profile.follower_count,
                         "following": profile.following_count
                 }
-                print("Instagram : Found user with that handle")
+                app.logger.info("Instagram : Found user with that handle")
                 return json_data
             else:
                 instagram = Instagram(handle)
-                print("Instagram : Couldn't find user with that handle")
-                try:
-                    response = instagram.checkUsername()
-                    print("Instagram : Checking if handle is available....")
-                except Exception as e:
-                    print('Critical Error getting instagram availability')
+                app.logger.info("Instagram : Couldn't find user with that handle")
 
+                response = instagram.checkUsername()
+                app.logger.info("Instagram : Checking if handle is available....")
                 if response:
                     json_data = {
                         "handle": handle,
                         'response': 'It may mean that the name was used before and the account was suspended or removed from Instagram, or that the username is not allowed, or that it is simply not available for use.'
                     }
-                    print("Instagram : handle is not available")
+                    app.logger.info("Instagram : handle is not available")
                     return json_data
                 else:
-                    print("Instagram : Handle is available")
+                    app.logger.info("Instagram : Handle is available")
                     return None
 
         except Exception as e:
-            print(f"Unexpected error occurred : {str(e)}")
+            app.logger.info(f"Unexpected error occurred : {str(e)}")
 
     def youtube_checker(self, handle):
         try:
@@ -119,7 +118,7 @@ class SocialMediaChecker:
                 channel_id = channel['id']['channelId']
                 channel_title = channel['snippet']['title']
                 channel_description = channel['snippet']['description']
-                print("Youtube : Found user with that handle")
+                app.logger.info("Youtube : Found user with that handle")
 
                 output = {
                     'channel_id': channel_id,
@@ -129,14 +128,14 @@ class SocialMediaChecker:
                 return output
 
             else:
-                print("Youtube : Couldn't find user with that handle")
+                app.logger.info("Youtube : Couldn't find user with that handle")
                 return None
 
         except Exception as e:
-            print(f'Error : {str(e)}')
+            app.logger.info(f'Error : {str(e)}')
 
         except Exception as e:
-            print(f"Unexpected error occurred : {str(e)}")
+            app.logger.info(f"Unexpected error occurred : {str(e)}")
 
     def tiktok_checker(self, handle):
         try:
@@ -148,14 +147,14 @@ class SocialMediaChecker:
                 output = {
                     'profile_name': profile_name
                 }
-                print("tiktok : Found user with that handle")
+                app.logger.info("tiktok : Found user with that handle")
                 return output
             except Exception as e:
-                print("tiktok : Couldn't find user with that handle")
+                app.logger.info("tiktok : Couldn't find user with that handle")
                 return None
 
         except Exception as e:
-            print(f"Unexpected error occurred : {str(e)}")
+            app.logger.info(f"Unexpected error occurred : {str(e)}")
 
 
     def twitter_checker(self, handle):
@@ -169,24 +168,26 @@ class SocialMediaChecker:
                     EC.presence_of_element_located((By.CSS_SELECTOR, '.r-1mf7evn .r-b88u0q .r-qvutc0'))).text
                 if not following:
                     return None
-                else:
-                    followers = WebDriverWait(self.driver, 2).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, '.r-1mf7evn+ .css-1dbjc4n .r-b88u0q .r-qvutc0'))).text
-                    output = {
-                        'Handle': f"@{handle}",
-                        'followers': str(followers),
-                        'following': str(following)
-                    }
-                    print("Twitter : Found user with that handle")
-                    return output
+
+                output = {
+                    'Handle': f"@{handle}"
+                }
+                app.logger.info("Twitter : Found user with that handle")
+                return output
 
             except Exception as e:
-                print("Twitter : Couldn't find user with that handle")
-                return None
+                app.logger.info("Twitter : Couldn't find user with that handle")
+                suspended = WebDriverWait(self.driver, 4).until(
+                    EC.presence_of_element_located((By.XPATH, '//*[@id="react-root"]/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/div/div/div[2]/div/div[1]/span'))).text
+                if suspended.lower() == 'Account suspended'.lower():
+                    app.logger.info('twitter account suspended')
+                    return True
+                else:
+                    return None
 
         except Exception as e:
             self.driver.quit()
-            print(f"Unexpected error occurred : {str(e)}")
+            app.logger.info(f"Unexpected error occurred : {str(e)}")
 
     def twitch_checker(self,handle):
         try:
@@ -197,14 +198,14 @@ class SocialMediaChecker:
                 output = {
                     'response': response.json()
                 }
-                print("Twitch : Found user with that handle")
+                app.logger.info("Twitch : Found user with that handle")
                 return output
             else:
-                print("Twitch : Couldn't find user with that handle")
+                app.logger.info("Twitch : Couldn't find user with that handle")
                 return None
 
         except Exception as e:
-            print(f"Unexpected error occurred : {str(e)}")
+            app.logger.info(f"Unexpected error occurred : {str(e)}")
 
     def facebook_checker(self,handle):
         try:
@@ -216,14 +217,14 @@ class SocialMediaChecker:
                 output = {
                     'profile_name': profile_name
                 }
-                print("Facebook : Found user with that handle")
+                app.logger.info("Facebook : Found user with that handle")
                 return output
             except Exception as e:
-                print("Facebook : Couldn't find user with that handle")
+                app.logger.info("Facebook : Couldn't find user with that handle")
                 return None
 
         except Exception as e:
-            print(f"Unexpected error occurred : {str(e)}")
+            app.logger.info(f"Unexpected error occurred : {str(e)}")
 
 class Instagram():
 
@@ -240,7 +241,7 @@ class Instagram():
         user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36'
         options.add_argument(f'user-agent={user_agent}')
         options.add_argument("--disable-dev-shm-usage")
-        options.add_experimental_option('detach', False)
+        options.add_experimental_option('detach', True)
         self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
         self.driver.get(url)
 
@@ -250,33 +251,36 @@ class Instagram():
             cookies = WebDriverWait(self.driver, 4).until(EC.presence_of_element_located((By.CLASS_NAME, '_a9_1')))
             cookies.click()
         except Exception as e:
-            print(f"Cookies button not found. {str(e)} \n Continuing without clicking. ")
+            app.logger.info(f"Cookies button not found. {str(e)} \n Continuing without clicking. ")
+        try:
+            email_input = WebDriverWait(self.driver, 4).until(
+                EC.presence_of_element_located(((By.NAME, 'emailOrPhone')))
+            )
+            email_input.send_keys('quanojo@gmail.com')
+            time.sleep(0.2)
 
-        email_input = WebDriverWait(self.driver, 4).until(
-            EC.presence_of_element_located(((By.NAME, 'emailOrPhone')))
-        )
-        email_input.send_keys('quanojo@gmail.com')
-        time.sleep(0.2)
+            fullName_input = WebDriverWait(self.driver, 4).until(EC.presence_of_element_located((By.NAME, 'fullName')))
+            fullName_input.send_keys('johnnypecados')
+            time.sleep(0.2)
 
-        fullName_input = WebDriverWait(self.driver, 4).until(EC.presence_of_element_located((By.NAME, 'fullName')))
-        fullName_input.send_keys('johnnypecados')
-        time.sleep(0.2)
+            username_input = WebDriverWait(self.driver, 4).until(EC.presence_of_element_located((By.NAME, 'username')))
+            username_input.send_keys(self.handle)
+            time.sleep(0.2)
 
-        username_input = WebDriverWait(self.driver, 4).until(EC.presence_of_element_located((By.NAME, 'username')))
-        username_input.send_keys(self.handle)
-        time.sleep(0.2)
+            password_input = WebDriverWait(self.driver, 4).until(EC.presence_of_element_located((By.NAME, 'password')))
+            password_input.send_keys('randompassword1235gndfsjaksda')
 
-        password_input = WebDriverWait(self.driver, 4).until(EC.presence_of_element_located((By.NAME, 'password')))
-        password_input.send_keys('randompassword1235gndfsjaksda')
+            next_button = WebDriverWait(self.driver, 4).until(EC.presence_of_element_located((By.XPATH, "//button[text()='Next']"))).click()
 
-        next_button = WebDriverWait(self.driver, 4).until(EC.presence_of_element_located((By.XPATH, "//button[text()='Next']"))).click()
+            error_taken = WebDriverWait(self.driver, 4).until(EC.presence_of_element_located((By.ID, "ssfErrorAlert")))
+            if error_taken.text == 'A user with that username already exists.' or error_taken.text == "This username isn't available. Please try another.":
+                return True
+            else:
+                return None
 
-        error_taken = WebDriverWait(self.driver, 4).until(EC.presence_of_element_located((By.ID, "ssfErrorAlert")))
-        print(error_taken.text)
-        if error_taken.text == 'A user with that username already exists.':
+        except Exception as e:
+            app.logger.info("Some elements couldn't be located")
             return True
-        else:
-            return None
 
 class TwitchAPI:
     def __init__(self, client_id, client_secret):
@@ -318,12 +322,11 @@ class TwitchAPI:
             if access_token:
                 os.environ['twitch_access_token'] = access_token
             else:
-                print("Access token not found in response.")
+                app.logger.info("Access token not found in response.")
                 return jsonify('FAILED TO GET ACCESS_TOKEN'), 500
         else:
-            print("Token request failed with status code:", tokenResponse.status_code)
+            app.logger.info("Token request failed with status code:", tokenResponse.status_code)
             return jsonify("Token request failed with status code:", tokenResponse.status_code), 500
-
 
 @app.route('/check_handle', methods=['GET'])
 def check_handle():
@@ -479,7 +482,6 @@ def check_handle():
         except Exception as e:
             return jsonify({"success": False, 'error': {'type': 'genericError', 'message': str(e)}})
 
-
 @app.route('/checkall_handle', methods=['GET'])
 def checkall_handle():
     handle = request.args.get('handle')
@@ -508,8 +510,6 @@ def check_single_handle(handle, social_media_checker):
     }
     social_media_checker.killdriver()
     return results
-
-
 
 if __name__ == '__main__':
     app.run(debug=False)
