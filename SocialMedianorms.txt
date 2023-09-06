@@ -1,0 +1,27 @@
+Twitter requirements : 
+less than 15chars
+longer than 4
+Usernames can only contain letters, numbers, periods, and underscores
+
+Reddit :
+ A-Z, a-z, 0-9 and both underscore and the dash
+ needs to have 3-20 chars
+ 
+ 
+Facebook :
+Usernames can only contain alphanumeric characters (A–Z, 0–9) and periods ("."). 
+They can't contain generic terms or extensions (.com, . net). Usernames must be at least 5 characters long.
+
+
+Tiktok :
+All TikTok usernames are limited to 24 characters and can only contain letters, numbers, periods, and underscores. 
+
+Twitch :
+ letters, numbers, underscore, between 4 and 25 characters)
+
+Youtube :
+1-50 characters include space and .
+
+
+Instagram :
+An Instagram username is limited to 30 characters and must contain only letters, numbers, periods, and underscores.
