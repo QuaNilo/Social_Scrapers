@@ -35,18 +35,18 @@ class SocialMediaHandleValidator:
         return bool(re.match(pattern, self.username))
 
     def is_valid_tiktok_handle(self):
-        if not self._is_valid_length(1, 24):
+        if not self._is_valid_length(4, 24):
             return False
         pattern = r"^[a-zA-Z0-9._]+$"
         return bool(re.match(pattern, self.username))
     def is_valid_twitch_handle(self):
-        if not self._is_valid_length(3, 26):
+        if not self._is_valid_length(4, 26):
             return False
         pattern = r"^[a-zA-Z0-9_]+$"
         return bool(re.match(pattern, self.username))
 
     def is_valid_youtube_handle(self):
-        if not self._is_valid_length(1, 50):
+        if not self._is_valid_length(4, 50):
             return False
         # Pattern allowing letters, numbers, spaces, and periods
         pattern = r"^[a-zA-Z0-9 .]+$"

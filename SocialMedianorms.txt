@@ -24,4 +24,4 @@ Youtube :
 
 
 Instagram :
-An Instagram username is limited to 30 characters and must contain only letters, numbers, periods, and underscores.
+An Instagram username is limited to 4-30 characters and must contain only letters, numbers, periods, and underscores.

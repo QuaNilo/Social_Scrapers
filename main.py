@@ -25,6 +25,7 @@ try:
     import prawcore
     import requests
     import dotenv
+    from Instagram import Instagram
     import chromedriver_binary
 
 except ModuleNotFoundError as e:
@@ -33,6 +34,9 @@ except Exception as ex:
     print(ex)
 
 app = Flask(__name__)
+
+with open('login.json', 'r') as file:
+    login_data = json.load(file)
 
 # Configure the logger
 app.logger.setLevel(logging.INFO)  # Set the desired log level
@@ -148,10 +152,8 @@ class SocialMediaChecker:
                 return None
 
         except Exception as e:
-            app.logger.info(f'Error : {str(e)}')
 
-        except Exception as e:
-            app.logger.info(f"Unexpected error occurred : {str(e)}")
+            app.logger.info(f'Error : {str(e)}')
 
     def tiktok_checker(self, handle):
         try:
@@ -223,7 +225,7 @@ class SocialMediaChecker:
 
     def facebook_checker(self,handle):
         try:
-            url = f'https://m.facebook.com/{handle}'
+            url = f'https://www.facebook.com/'
             self.driver.get(url)
 
             try:
@@ -239,86 +241,6 @@ class SocialMediaChecker:
 
         except Exception as e:
             app.logger.info(f"Unexpected error occurred : {str(e)}")
-
-class Instagram():
-
-    def __init__(self, handle):
-        self.handle = handle
-        self.init_driver()
-
-    def init_driver(self):
-        url = 'https://www.instagram.com/accounts/emailsignup/'
-        options = Options()
-        options.add_argument("--headless")
-        options.add_argument(f"--window-size={random.randint(1024,1920)},{random.randint(768,1024)}")
-        options.add_argument("--no-sandbox")
-        user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36'
-        options.add_argument(f'user-agent={user_agent}')
-        options.add_argument("--disable-dev-shm-usage")
-        ##Proxy
-        # random_proxy = '103.159.90.6:8080'
-        # options.add_argument(f'--proxy-server={random_proxy}')
-        options.add_experimental_option('detach', False)
-        self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-        self.driver.get(url)
-
-    def checkUsername(self):
-
-        try:
-            cookies = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.CLASS_NAME, '_a9_1')))
-            ActionChains(self.driver).move_to_element_with_offset(cookies,1,2).perform()
-            time.sleep(random.uniform(0.05, 0.15))
-            cookies.click()
-        except Exception as e:
-            app.logger.info(f"Cookies button not found. {str(e)} \n Continuing without clicking. ")
-        try:
-            email_input = WebDriverWait(self.driver, 1).until(
-                EC.presence_of_element_located(((By.NAME, 'emailOrPhone')))
-            )
-            ActionChains(self.driver).move_to_element_with_offset(email_input,1, 2).perform()
-            time.sleep(random.uniform(0.05,0.15))
-            random_email = generate_randomEmail()
-            app.logger.info(f'Instagram: inputing random email > {random_email}')
-            email_input.send_keys(random_email)
-
-            fullName_input = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.NAME, 'fullName')))
-            ActionChains(self.driver).move_to_element_with_offset(fullName_input,1, 2).perform()
-            time.sleep(random.uniform(0.05,0.15))
-            random_fullName = generate_randomName()
-            app.logger.info(f'Instagram: inputing random full name > {random_fullName}')
-            fullName_input.send_keys(random_fullName)
-
-            username_input = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.NAME, 'username')))
-            ActionChains(self.driver).move_to_element_with_offset(username_input,1, 2).perform()
-            time.sleep(random.uniform(0.05,0.15))
-            username_input.send_keys(self.handle)
-
-            password_input = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.NAME, 'password')))
-            ActionChains(self.driver).move_to_element_with_offset(password_input,1, 2).perform()
-            time.sleep(random.uniform(0.05,0.15))
-            random_password = generate_random_password()
-            app.logger.info(f'Instagram: inputing random password > {random_password}')
-            password_input.send_keys(random_password)
-
-            next_button = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.XPATH, "//button[text()='Next']"))).click()
-            try:
-                error_taken = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.ID, "ssfErrorAlert")))
-                print(error_taken.text)
-                if error_taken.text == 'A user with that username already exists.' or error_taken.text == "This username isn't available. Please try another.":
-                    return True
-                else:
-                    return None
-            except Exception as e:
-                print('entered exception')
-                birthday_page = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'span.x1lliihq.x1plvlek.xryxfnj.x1n2onr6.x193iq5w.xeuugli.x1fj9vlw.x13faqbe.x1vvkbs.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.x1i0vuye.x1fhwpqd.xo1l8bm.x1roi4f4.x2b8uid.x1s3etm8.x676frb.x10wh9bi.x1wdrske.x8viiok.x18hxmgj[style*="line-height"][dir="auto"]'.replace(' ', '.'))))
-                birthday_page = birthday_page.text
-                print(birthday_page)
-                return None if 'birthday' in birthday_page else True
-
-        except Exception as e:
-            print(f"some elements couldn't be located : {str(e)}")
-            app.logger.info("Some elements couldn't be located")
-            return None
 
 class TwitchAPI:
     def __init__(self, client_id, client_secret):
@@ -549,30 +471,42 @@ def check_handle():
 def checkall_handle():
     handle = request.args.get('handle')
     social_media_checker = SocialMediaChecker()
+    validator = SocialMediaHandleValidator(handle)
 
     if not handle:
         response_data = {'success': False,'error': {'type': 'HandleNotProvided', 'message': "Handle not provided"}}
         return jsonify(response_data), 400
 
-    results = check_single_handle(handle, social_media_checker)
-    return jsonify(results), 200
+    results = check_single_handle(handle, social_media_checker, validator)
+    if results['success']:
+        return jsonify(results), 200
+    else:
+        return jsonify(results), 500
 
-def check_single_handle(handle, social_media_checker):
-    results = {
-        'success': True,
-        'data': {
-            ##True if available, False if not available
-            'twitter': False if social_media_checker.twitter_checker(handle) or len(handle) <= 4 or len(handle) >= 15 else True,
-            #'facebook': False if social_media_checker.facebook_checker(handle) or len(handle) < 5 else True,
-            'reddit': False if social_media_checker.reddit_checker(handle) else True,
-            'tiktok': False if social_media_checker.tiktok_checker(handle) else True,
-            'youtube': False if social_media_checker.youtube_checker(handle) else True,
-            'instagram': False if social_media_checker.instagram_checker(handle) else True,
-            'twitch': False if social_media_checker.twitch_checker(handle) else True
+def check_single_handle(handle, social_media_checker, validator):
+    try:
+        results = {
+            'success': True,
+            'data': {
+                ##True if available, False if not available
+                'twitter': social_media_checker.twitter_checker(handle) if validator.is_valid_twitter_handle() else False,
+                #'facebook': social_media_checker.facebook_checker(handle) if validator.is_valid_facebook_handle() else False,
+                'reddit': social_media_checker.reddit_checker(handle) if validator.is_valid_reddit_handle() else False,
+                'tiktok': social_media_checker.tiktok_checker(handle) if validator.is_valid_tiktok_handle() else False,
+                'youtube': social_media_checker.youtube_checker(handle) if validator.is_valid_youtube_handle() else False,
+                'instagram': social_media_checker.instagram_checker(handle) if validator.is_valid_instagram_handle() else False,
+                'twitch': social_media_checker.twitch_checker(handle) if validator.is_valid_twitch_handle() else False,
+            }
         }
-    }
-    social_media_checker.killdriver()
-    return results
+        social_media_checker.killdriver()
+        for platform, has_data in results['data'].items():
+            results['data'][platform] = True if has_data == None else False
+
+        return results
+    except Exception as e:
+        response_data = {'success': False, 'error': {'type': 'genericError', 'message': f"{str(e)}"}}
+        return response_data
+
 
 if __name__ == '__main__':
     app.run(debug=False)
