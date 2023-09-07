@@ -89,4 +89,4 @@ class Instagram():
         except Exception as e:
             print(f"some elements couldn't be located : {str(e)}")
             print("Some elements couldn't be located")
-            return None
+            return 'Failure'

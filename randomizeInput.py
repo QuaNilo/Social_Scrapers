@@ -24,13 +24,17 @@ def generate_randomEmail():
     name += '@gmail.com'
     return name.replace(' ', '')
 
-random_fullName = generate_randomName()
-print(random_fullName)
-
-random_password = generate_random_password()
-print(random_password)
 
 
-random_email = generate_randomEmail()
-print(random_email)
+
+if __name__ == '__main__':
+    random_fullName = generate_randomName()
+    print(random_fullName)
+
+    random_password = generate_random_password()
+    print(random_password)
+
+
+    random_email = generate_randomEmail()
+    print(random_email)
 

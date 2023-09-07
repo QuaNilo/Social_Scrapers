@@ -13,6 +13,7 @@ try:
     from selenium.webdriver.common.proxy import Proxy, ProxyType
     from selenium.webdriver.support import expected_conditions as EC
     from SocialMediaNorms import SocialMediaHandleValidator
+    from selenium.common.exceptions import NoSuchElementException
     from randomizeInput import generate_randomName, generate_randomEmail, generate_random_password
     import praw
     import time
@@ -24,7 +25,6 @@ try:
     from googleapiclient.discovery import build
     import prawcore
     import requests
-    import dotenv
     from Instagram import Instagram
     import chromedriver_binary
 
@@ -162,7 +162,7 @@ class SocialMediaChecker:
 
             try:
                 profile_name = WebDriverWait(self.driver, 4).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.ekmpd5l3 .e1457k4r8')))
-                ActionChains(self.driver).move_to_element_with_offset(profile_name, 1, 1).perform()
+                ActionChains(self.driver).move_to_element_with_offset(profile_name, random.randint(1,3), random.randint(1,3)).perform()
                 time.sleep(random.uniform(0.01, 0.1))
                 profile_name = profile_name.text
                 output = {
@@ -171,12 +171,12 @@ class SocialMediaChecker:
                 app.logger.info("tiktok : Found user with that handle")
                 return output
             except Exception as e:
-                app.logger.info(f"tiktok : Couldn't find user with that handle \n {str(e)}")
+                app.logger.info(f"tiktok : Couldn't find user with that handle \n")
                 return None
 
         except Exception as e:
             app.logger.info(f"Unexpected error occurred : {str(e)}")
-
+            return 'Failure'
 
     def twitter_checker(self, handle):
         try:
@@ -204,6 +204,7 @@ class SocialMediaChecker:
         except Exception as e:
             self.driver.quit()
             app.logger.info(f"Unexpected error occurred : {str(e)}")
+            return 'Failure'
 
     def twitch_checker(self,handle):
         try:
@@ -229,18 +230,55 @@ class SocialMediaChecker:
             self.driver.get(url)
 
             try:
-                profile_name = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.CSS_SELECTOR, '._391s'))).text
-                output = {
-                    'profile_name': profile_name
-                }
-                app.logger.info("Facebook : Found user with that handle")
-                return output
+                email_input = WebDriverWait(self.driver, 3).until(EC.presence_of_element_located((By.ID, 'email')))
+                password_input = WebDriverWait(self.driver, 3).until(EC.presence_of_element_located((By.ID, 'pass')))
+                login_button = WebDriverWait(self.driver,3).until(EC.presence_of_element_located((By.NAME, 'login')))
+                time.sleep(0.1)
             except Exception as e:
-                app.logger.info("Facebook : Couldn't find user with that handle")
-                return None
+                app.logger.info(f"Failed to get form elements : {str(e)}")
+                return 'Failure'
 
+            try:
+                decline_cookies = WebDriverWait(self.driver,3).until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="cookie-policy-manage-dialog-accept-button"]')))
+                ActionChains(self.driver).move_to_element_with_offset(decline_cookies, random.randint(1, 3), random.randint(1, 3))
+                decline_cookies.click()
+
+            except Exception as e:
+                print(f'No decline cookies element found : {str(e)}')
+
+
+            ActionChains(self.driver).move_to_element_with_offset(email_input,random.randint(1, 3), random.randint(1, 3)).perform()
+            time.sleep(random.uniform(0.05,0.15))
+            email_input.send_keys(login_data['facebook']['email'])
+
+            ActionChains(self.driver).move_to_element_with_offset(password_input,random.randint(1, 3), random.randint(1, 3)).perform()
+            time.sleep(random.uniform(0.05,0.15))
+            password_input.send_keys(login_data['facebook']['password'])
+
+            ActionChains(self.driver).move_to_element_with_offset(login_button,random.randint(1, 3), random.randint(1, 3)).perform()
+            time.sleep(random.uniform(0.05,0.15))
+            login_button.click()
+
+            ##LOGIN CHECK
+            welcome = WebDriverWait(self.driver, 4).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'span.x193iq5w.xeuugli.x13faqbe.x1vvkbs.x1xmvt09.x1lliihq.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.x14z4hjw.x3x7a5m.xngnso2.x1qb5hxa.x1xlr1w8.xzsf02u[dir="auto"]')))
+            if welcome:
+                self.driver.get(f'https://m.facebook.com/{handle}')
+                try:
+                    profile_name = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'h1.x1heor9g.x1qlqyl8.x1pd3egz.x1a2a7pz')))
+                    print(f'profile found : {profile_name.text}')
+                    output = {
+                        'Handle': f"@{handle}"
+                    }
+                    return output
+                except Exception as err:
+                    app.logger.info(f"Facebook : Profile not found ")
+                    return None
+
+            else:
+                return 'Failure'
         except Exception as e:
             app.logger.info(f"Unexpected error occurred : {str(e)}")
+            return 'Failure'
 
 class TwitchAPI:
     def __init__(self, client_id, client_secret):
@@ -294,7 +332,7 @@ def check_handle():
     handle = request.args.get('handle')
     social_media_checker = SocialMediaChecker()
     validator = SocialMediaHandleValidator(handle)
-    valid_social_networks = ['twitter', 'instagram', 'reddit', 'tiktok', 'youtube', 'twitch'] ##Facebook removed temporarily
+    valid_social_networks = ['twitter', 'instagram', 'reddit', 'tiktok', 'youtube', 'twitch', 'facebook']
 
 
     if not handle:
@@ -422,28 +460,28 @@ def check_handle():
         except Exception as e:
             return jsonify({"success": False, 'error': {'type': 'genericError', 'message': str(e)}})
 
-    # if social_network == "facebook":
-        # if not validator.is_valid_facebook_handle():
-        #     response_data = {'success': False, 'error': {'type': 'invalidHandle',
-        #      'message': f"Handle({str(handle)}) Usernames can only contain letters, numbers, underscore and the dash Longer than 4 chars and Shorter than 15 Chars"}}
-        #     return jsonify(response_data), 400
-    #     try:
-    #         response = social_media_checker.facebook_checker(handle)
-    #         social_media_checker.killdriver()
-    #         if response:
-    #             user_data = {
-    #                 "is_available": False,
-    #                 "success": True,
-    #                 "data": {
-    #                     "response": response
-    #                 }
-    #             }
-    #             return user_data, 200
-    #         else:
-    #             return jsonify({"is_available": True, "success": True, 'data': { 'response': [response]}})
-    #
-    #     except Exception as e:
-    #         return jsonify({"success": False, 'error': {'type': 'genericError', 'message': str(e)}})
+    if social_network == "facebook":
+        if not validator.is_valid_facebook_handle():
+            response_data = {'success': False, 'error': {'type': 'invalidHandle',
+             'message': f"Handle({str(handle)}) Usernames can only contain letters, numbers, underscore and the dash Longer than 4 chars and Shorter than 15 Chars"}}
+            return jsonify(response_data), 400
+        try:
+            response = social_media_checker.facebook_checker(handle)
+            # social_media_checker.killdriver()
+            if response:
+                user_data = {
+                    "is_available": False,
+                    "success": True,
+                    "data": {
+                        "response": response
+                    }
+                }
+                return user_data, 200
+            else:
+                return jsonify({"is_available": True, "success": True, 'data': { 'response': [response]}})
+
+        except Exception as e:
+            return jsonify({"success": False, 'error': {'type': 'genericError', 'message': str(e)}})
 
     if social_network == "instagram":
         try:
@@ -489,18 +527,44 @@ def check_single_handle(handle, social_media_checker, validator):
             'success': True,
             'data': {
                 ##True if available, False if not available
-                'twitter': social_media_checker.twitter_checker(handle) if validator.is_valid_twitter_handle() else False,
-                #'facebook': social_media_checker.facebook_checker(handle) if validator.is_valid_facebook_handle() else False,
-                'reddit': social_media_checker.reddit_checker(handle) if validator.is_valid_reddit_handle() else False,
-                'tiktok': social_media_checker.tiktok_checker(handle) if validator.is_valid_tiktok_handle() else False,
-                'youtube': social_media_checker.youtube_checker(handle) if validator.is_valid_youtube_handle() else False,
-                'instagram': social_media_checker.instagram_checker(handle) if validator.is_valid_instagram_handle() else False,
-                'twitch': social_media_checker.twitch_checker(handle) if validator.is_valid_twitch_handle() else False,
+                'twitter': {
+                    'is_available': social_media_checker.twitter_checker(handle) if validator.is_valid_twitter_handle() else False,
+                    'success': True
+                },
+                'reddit': {
+                    'is_available': social_media_checker.reddit_checker(handle) if validator.is_valid_reddit_handle() else False,
+                    'success': True
+                },
+                'tiktok': {
+                    'is_available': social_media_checker.tiktok_checker(handle) if validator.is_valid_tiktok_handle() else False,
+                    'success': True
+                },
+                'youtube': {
+                    'is_available': social_media_checker.youtube_checker(handle) if validator.is_valid_youtube_handle() else False,
+                    'success': True
+                },
+                'instagram': {
+                    'is_available': social_media_checker.instagram_checker(handle) if validator.is_valid_instagram_handle() else False,
+                    'success': True
+                },
+                'twitch': {
+                    'is_available': social_media_checker.twitch_checker(handle) if validator.is_valid_twitch_handle() else False,
+                    'success': True
+                },
+                'facebook': {
+                    'is_available': social_media_checker.facebook_checker(handle) if validator.is_valid_facebook_handle() else False,
+                    'success': True
+                },
             }
         }
         social_media_checker.killdriver()
-        for platform, has_data in results['data'].items():
-            results['data'][platform] = True if has_data == None else False
+        for platform, platform_data in results['data'].items():
+            if platform_data['is_available'] == 'Failure':
+                platform_data['success'] = False
+            elif platform_data['is_available'] == None:
+                platform_data['is_available'] = True
+            else:
+                platform_data['is_available'] = False
 
         return results
     except Exception as e:
