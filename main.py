@@ -55,16 +55,13 @@ class SocialMediaChecker:
         load_dotenv("variables.env")
     def initdriver(self):
         options = Options()
-        options.add_argument("--headless")
+        # options.add_argument("--headless")
         options.add_argument(f"--window-size={random.randint(1024,1920)},{random.randint(768,1024)}")
         options.add_argument("--no-sandbox")
         user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36'
         options.add_argument(f'user-agent={user_agent}')
         options.add_argument("--disable-dev-shm-usage")
-        options.add_experimental_option('detach', True)
-        ##Proxy
-        # random_proxy = '103.159.90.6:8080'
-        # options.add_argument(f'--proxy-server={random_proxy}')
+        options.add_experimental_option('detach', False)
         self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
     def killdriver(self):
@@ -573,6 +570,6 @@ def check_single_handle(handle, social_media_checker, validator):
 
 
 if __name__ == '__main__':
-    app.run(debug=False)
+    app.run(debug=True)
 
 
