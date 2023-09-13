@@ -55,7 +55,7 @@ class SocialMediaChecker:
         load_dotenv("variables.env")
     def initdriver(self):
         options = Options()
-        # options.add_argument("--headless")
+        options.add_argument("--headless")
         options.add_argument(f"--window-size={random.randint(1024,1920)},{random.randint(768,1024)}")
         options.add_argument("--no-sandbox")
         user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36'
