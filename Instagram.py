@@ -33,6 +33,11 @@ class Instagram():
         self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
         self.driver.get(url)
 
+    def killdriver(self):
+        if hasattr(self, 'driver'):
+            self.driver.quit()
+            print("Closed driver")
+
     def checkUsername(self):
 
         try:

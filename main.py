@@ -65,7 +65,9 @@ class SocialMediaChecker:
         self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
     def killdriver(self):
-        self.driver.quit()
+        if hasattr(self, 'driver'):
+            self.driver.quit()
+            app.logger.info("Closed driver")
 
     def reddit_checker(self, handle):
         try:
@@ -100,11 +102,14 @@ class SocialMediaChecker:
                 app.logger.info("Instagram : Found user with that handle")
                 return json_data
             else:
-                instagram = Instagram(handle)
                 app.logger.info("Instagram : Couldn't find user with that handle")
-
                 app.logger.info("Instagram : Checking if handle is available....")
+
+                instagram = Instagram(handle)
                 response = instagram.checkUsername()
+
+                instagram.killdriver()
+
                 if response:
                     json_data = {
                         "handle": handle,
@@ -351,7 +356,7 @@ def check_handle():
                 response_data = {'success': False, 'error': {'type': 'invalidHandle', 'message': f"Handle({str(handle)}) Usernames can only contain letters, numbers, periods, and underscores Longer than 4 chars and Shorter than 15 Chars"}}
                 return jsonify(response_data), 400
             response = social_media_checker.twitter_checker(handle)
-            # social_media_checker.killdriver()
+            social_media_checker.killdriver()
             if response:
                 user_data = {
                     "is_available": False,
@@ -464,7 +469,7 @@ def check_handle():
             return jsonify(response_data), 400
         try:
             response = social_media_checker.facebook_checker(handle)
-            # social_media_checker.killdriver()
+            social_media_checker.killdriver()
             if response:
                 user_data = {
                     "is_available": False,
