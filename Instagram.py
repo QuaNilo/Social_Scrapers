@@ -11,6 +11,12 @@ from randomizeInput import generate_randomName, generate_randomEmail, generate_r
 
 import time
 
+
+with open('user-agents.txt', 'r') as file:
+    # Read all lines into a list
+    all_user_agents = file.readlines()
+
+
 class Instagram():
 
     def __init__(self, handle):
@@ -23,9 +29,21 @@ class Instagram():
         options.add_argument("--headless")
         options.add_argument(f"--window-size={random.randint(1024,1920)},{random.randint(768,1024)}")
         options.add_argument("--no-sandbox")
-        user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36'
+        user_agent = random.choice(all_user_agents)
         options.add_argument(f'user-agent={user_agent}')
         options.add_argument("--disable-dev-shm-usage")
+
+        # Adding argument to disable the AutomationControlled flag
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        # Exclude the collection of enable-automation switches
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        # Turn-off userAutomationExtension
+        options.add_experimental_option("useAutomationExtension", False)
+        # Setting the driver path and requesting a page
+        driver = webdriver.Chrome(options=options)
+        # Changing the property of the navigator value for webdriver to undefined
+        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+
         ##Proxy
         # random_proxy = '103.159.90.6:8080'
         # options.add_argument(f'--proxy-server={random_proxy}')
@@ -39,11 +57,12 @@ class Instagram():
             print("Closed driver")
 
     def checkUsername(self):
-
+        time.sleep(random.uniform(1,4))
+        self.driver.execute_script('window.scrollTo(0, 700)')
         try:
             cookies = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.CLASS_NAME, '_a9_1')))
             ActionChains(self.driver).move_to_element_with_offset(cookies,1,2).perform()
-            time.sleep(random.uniform(0.05, 0.15))
+            time.sleep(random.uniform(0.4, 1))
             cookies.click()
         except Exception as e:
             print(f"Cookies button not found. {str(e)} \n Continuing without clicking. ")
@@ -52,26 +71,26 @@ class Instagram():
                 EC.presence_of_element_located(((By.NAME, 'emailOrPhone')))
             )
             ActionChains(self.driver).move_to_element_with_offset(email_input,1, 2).perform()
-            time.sleep(random.uniform(0.05,0.15))
+            time.sleep(random.uniform(0.4, 1))
             random_email = generate_randomEmail()
             print(f'Instagram: inputing random email > {random_email}')
             email_input.send_keys(random_email)
 
             fullName_input = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.NAME, 'fullName')))
             ActionChains(self.driver).move_to_element_with_offset(fullName_input,1, 2).perform()
-            time.sleep(random.uniform(0.05,0.15))
+            time.sleep(random.uniform(0.4, 1))
             random_fullName = generate_randomName()
             print(f'Instagram: inputing random full name > {random_fullName}')
             fullName_input.send_keys(random_fullName)
 
             username_input = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.NAME, 'username')))
             ActionChains(self.driver).move_to_element_with_offset(username_input,1, 2).perform()
-            time.sleep(random.uniform(0.05,0.15))
+            time.sleep(random.uniform(0.4, 1))
             username_input.send_keys(self.handle)
 
             password_input = WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.NAME, 'password')))
             ActionChains(self.driver).move_to_element_with_offset(password_input,1, 2).perform()
-            time.sleep(random.uniform(0.05,0.15))
+            time.sleep(random.uniform(0.4, 1))
             random_password = generate_random_password()
             print(f'Instagram: inputing random password > {random_password}')
             password_input.send_keys(random_password)

@@ -38,6 +38,11 @@ app = Flask(__name__)
 with open('login.json', 'r') as file:
     login_data = json.load(file)
 
+# Open the file for reading
+with open('user-agents.txt', 'r') as file:
+    # Read all lines into a list
+    all_user_agents = file.readlines()
+
 # Configure the logger
 app.logger.setLevel(logging.INFO)  # Set the desired log level
 handler = logging.StreamHandler()  # Log to the console
@@ -58,10 +63,21 @@ class SocialMediaChecker:
         options.add_argument("--headless")
         options.add_argument(f"--window-size={random.randint(1024,1920)},{random.randint(768,1024)}")
         options.add_argument("--no-sandbox")
-        user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36'
+        user_agent = random.choice(all_user_agents)
         options.add_argument(f'user-agent={user_agent}')
         options.add_argument("--disable-dev-shm-usage")
         options.add_experimental_option('detach', False)
+
+        # Adding argument to disable the AutomationControlled flag
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        # Exclude the collection of enable-automation switches
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        # Turn-off userAutomationExtension
+        options.add_experimental_option("useAutomationExtension", False)
+        # Setting the driver path and requesting a page
+        driver = webdriver.Chrome(options=options)
+        # Changing the property of the navigator value for webdriver to undefined
+        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
     def killdriver(self):
@@ -161,11 +177,11 @@ class SocialMediaChecker:
         try:
             url = f'https://www.tiktok.com/@{handle}'
             self.driver.get(url)
-
+            time.sleep(random.uniform(1, 4))
             try:
                 profile_name = WebDriverWait(self.driver, 4).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.ekmpd5l3 .e1457k4r8')))
+                time.sleep(random.uniform(0.4, 1))
                 ActionChains(self.driver).move_to_element_with_offset(profile_name, random.randint(1,3), random.randint(1,3)).perform()
-                time.sleep(random.uniform(0.01, 0.1))
                 profile_name = profile_name.text
                 output = {
                     'profile_name': profile_name
@@ -184,11 +200,13 @@ class SocialMediaChecker:
         try:
             url = f'https://twitter.com/{handle}'
             self.driver.get(url)
-
+            time.sleep(random.uniform(1, 4))
             try:
                 # following = self.driver.find_element('css selector', '.r-1mf7evn .r-b88u0q .r-qvutc0').text
+
                 message = WebDriverWait(self.driver, 2).until(
                         EC.presence_of_element_located((By.XPATH, '//*[@id="react-root"]/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/div/div/div[2]/div/div[1]/span'))).text
+                time.sleep(random.uniform(0.5, 1))
                 app.logger.info("Twitter : Couldn't find user with that handle")
                 if message == 'This account doesn’t exist':
                     return None
@@ -230,16 +248,7 @@ class SocialMediaChecker:
         try:
             url = f'https://www.facebook.com/'
             self.driver.get(url)
-
-            try:
-                email_input = WebDriverWait(self.driver, 3).until(EC.presence_of_element_located((By.ID, 'email')))
-                password_input = WebDriverWait(self.driver, 3).until(EC.presence_of_element_located((By.ID, 'pass')))
-                login_button = WebDriverWait(self.driver,3).until(EC.presence_of_element_located((By.NAME, 'login')))
-                time.sleep(0.1)
-            except Exception as e:
-                app.logger.info(f"Failed to get form elements : {str(e)}")
-                return 'Failure'
-
+            time.sleep(random.uniform(1, 4))
             try:
                 decline_cookies = WebDriverWait(self.driver,3).until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="cookie-policy-manage-dialog-accept-button"]')))
                 ActionChains(self.driver).move_to_element_with_offset(decline_cookies, random.randint(1, 3), random.randint(1, 3))
@@ -248,24 +257,36 @@ class SocialMediaChecker:
             except Exception as e:
                 print(f'No decline cookies element found : {str(e)}')
 
+            try:
+                email_input = WebDriverWait(self.driver, 3).until(EC.presence_of_element_located((By.ID, 'email')))
+                password_input = WebDriverWait(self.driver, 3).until(EC.presence_of_element_located((By.ID, 'pass')))
+                login_button = WebDriverWait(self.driver,3).until(EC.presence_of_element_located((By.NAME, 'login')))
+                time.sleep(random.uniform(0.5,2))
+            except Exception as e:
+                app.logger.info(f"Failed to get form elements : {str(e)}")
+                return 'Failure'
+
+
 
             ActionChains(self.driver).move_to_element_with_offset(email_input,random.randint(1, 3), random.randint(1, 3)).perform()
-            time.sleep(random.uniform(0.05,0.15))
+            time.sleep(random.uniform(0.5,1.5))
             email_input.send_keys(login_data['facebook']['email'])
 
             ActionChains(self.driver).move_to_element_with_offset(password_input,random.randint(1, 3), random.randint(1, 3)).perform()
-            time.sleep(random.uniform(0.05,0.15))
+            time.sleep(random.uniform(0.5,1.5))
             password_input.send_keys(login_data['facebook']['password'])
 
             ActionChains(self.driver).move_to_element_with_offset(login_button,random.randint(1, 3), random.randint(1, 3)).perform()
-            time.sleep(random.uniform(0.05,0.15))
+            time.sleep(random.uniform(0.5,1.5))
             login_button.click()
 
             ##LOGIN CHECK
+            time.sleep(random.uniform(1,3))
             welcome = WebDriverWait(self.driver, 4).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'span.x193iq5w.xeuugli.x13faqbe.x1vvkbs.x1xmvt09.x1lliihq.x1s928wv.xhkezso.x1gmr53x.x1cpjm7i.x1fgarty.x1943h6x.x14z4hjw.x3x7a5m.xngnso2.x1qb5hxa.x1xlr1w8.xzsf02u[dir="auto"]')))
             if welcome:
                 self.driver.get(f'https://m.facebook.com/{handle}')
                 try:
+                    time.sleep(random.uniform(0.4, 1))
                     profile_name = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'h1.x1heor9g.x1qlqyl8.x1pd3egz.x1a2a7pz')))
                     print(f'profile found : {profile_name.text}')
                     output = {
